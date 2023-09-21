@@ -1,13 +1,24 @@
 package com.asamman.kidhasphonealertparent;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.MediaPlayer;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.provider.AlarmClock;
 import android.util.Log;
+
+import androidx.core.app.NotificationCompat;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -21,10 +32,16 @@ public class BackgroundService extends Service {
 
     private Timer timer;
     private String TAG = "BackgroundService";
+    private MediaPlayer mediaPlayer;
+    private Handler handler;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         startTimer();
+
+        mediaPlayer = new MediaPlayer();
+        handler = new Handler();
+
         Log.d(TAG, "Service started");
         return START_STICKY;
     }
@@ -46,7 +63,6 @@ public class BackgroundService extends Service {
                     throw new RuntimeException(e);
                 }
             }
-//        }, 0, 3 * 60 * 1000);
         }, 0, 3 * 60 * 1000);
     }
 
@@ -57,7 +73,7 @@ public class BackgroundService extends Service {
     }
 
     public void notify(String kidName) {
-        int seconds = 1;
+        int seconds = 10;
         Intent intent = new Intent(AlarmClock.ACTION_SET_TIMER)
                 .putExtra(AlarmClock.EXTRA_MESSAGE, kidName)
                 .putExtra(AlarmClock.EXTRA_LENGTH, seconds)
@@ -69,6 +85,27 @@ public class BackgroundService extends Service {
         } else {
             Log.d("ImplicitIntents", "Can't handle this intent!");
         }
+
+        // Play alarm default alarm sound
+        playDefaultAlarmSound();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    "KidHasAlertChannel",
+                    "KidHasAlertChannel",
+                    NotificationManager.IMPORTANCE_DEFAULT);
+            channel.setDescription("KidHasPhoneAlert channel for foreground service notification");
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "KidHasAlertChannel")
+                .setSmallIcon(R.mipmap.ic_logo)
+                .setContentTitle("KidHasPhoneAlert")
+                .setContentText(kidName + " has phone")
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true);
+
+            notificationManager.notify(1, builder.build());
+        }
     }
 
     private void fetchAndNotify() throws JSONException {
@@ -76,6 +113,33 @@ public class BackgroundService extends Service {
         String jsonResponse = fetchDataFromFirestore(retrieveStrings());
 
         compareAndNotify(jsonResponse);
+    }
+
+    private void playDefaultAlarmSound() {
+        try {
+            Uri alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+            if (alert == null) {
+                // If alarm sound is not available, use notification sound
+                alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            }
+
+            Ringtone ringtone = RingtoneManager.getRingtone(getApplicationContext(), alert);
+            ringtone.play();
+
+            // Stop the ringtone after 10 seconds
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    ringtone.stop();
+                }
+            }, 6000); // Stop after 10 seconds
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void stopAlarm() {
+        mediaPlayer.stop();
     }
 
     private void compareAndNotify(String jsonResponse) {
