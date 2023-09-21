@@ -62,7 +62,7 @@ public class StringAdapter extends ArrayAdapter<String> {
         stringList.add(string);
 
         SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putInt(string, 0);
+        editor.putLong(string, 0);
         editor.apply();
     }
 }

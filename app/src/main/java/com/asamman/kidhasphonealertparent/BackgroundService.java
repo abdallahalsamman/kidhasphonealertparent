@@ -64,6 +64,7 @@ public class BackgroundService extends Service {
                 .putExtra(AlarmClock.EXTRA_SKIP_UI, true);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         if (intent.resolveActivity(getPackageManager()) != null) {
+            Log.d("BackgroundService", "Starting Timer");
             startActivity(intent);
         } else {
             Log.d("ImplicitIntents", "Can't handle this intent!");
@@ -85,18 +86,18 @@ public class BackgroundService extends Service {
         try {
             JSONArray documents = new JSONArray(jsonResponse);
 
-            if (documents.length() > 0) {
-                JSONObject document = documents.getJSONObject(0).getJSONObject("document");
+            for (int i = 0; documents.length() > i; i++) {
+                JSONObject document = documents.getJSONObject(i).getJSONObject("document");
                 JSONObject fields = document.getJSONObject("fields");
                 String kidName = fields.getJSONObject("kid_name").getString("stringValue");
-                int integerValue = fields.getJSONObject("timestamp").getInt("integerValue");
+                long integerValue = fields.getJSONObject("timestamp").getLong("integerValue");
 
                 SharedPreferences sharedPreferences = getSharedPreferences("com.asamman.kidhasphonealertparent", MODE_PRIVATE);
-                int lastFetchedIntegerValue = sharedPreferences.getInt(kidName, 0);
+                long lastFetchedIntegerValue = sharedPreferences.getLong(kidName, 0L);
 
                 if (integerValue > lastFetchedIntegerValue) {
                     SharedPreferences.Editor editor = sharedPreferences.edit();
-                    editor.putInt(kidName, integerValue);
+                    editor.putLong(kidName, integerValue);
                     editor.apply();
 
                     notify(kidName);
@@ -111,6 +112,9 @@ public class BackgroundService extends Service {
 
     private String fetchDataFromFirestore(String[] kids) throws JSONException {
         String apiUrl = "https://firestore.googleapis.com/v1/projects/kidhasphonealert/databases/(default)/documents:runQuery?key=AIzaSyAYGBPOO1kPiPceMuUa_BQzWhyV92-sNas";
+        if (kids.length == 0) {
+            return null;
+        }
         String firestoreQuery = FirestoreQuery.generateQueryJson(kids);
 
         String responseJson = NetworkUtils.sendPostRequest(apiUrl, firestoreQuery);

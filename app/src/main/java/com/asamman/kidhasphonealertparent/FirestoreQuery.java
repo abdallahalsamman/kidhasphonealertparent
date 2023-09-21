@@ -60,8 +60,15 @@ public class FirestoreQuery {
         // Add the 'where' object to the structured query
         structuredQuery.put("where", whereObject);
 
+        // Set the 'orderBy' array
+        JSONArray orderByArray = new JSONArray();
+        JSONObject orderByObject = new JSONObject();
+        orderByObject.put("field", new JSONObject().put("fieldPath", "timestamp"));
+        orderByObject.put("direction", "DESCENDING");
+        orderByArray.put(orderByObject);
+        structuredQuery.put("orderBy", orderByArray);
+
         JSONObject output = new JSONObject().put("structuredQuery", structuredQuery);
         return output.toString();
     }
-
 }
