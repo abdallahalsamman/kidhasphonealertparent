@@ -3,6 +3,7 @@ package com.asamman.kidhasphonealertparent;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -18,6 +19,7 @@ import android.os.IBinder;
 import android.provider.AlarmClock;
 import android.util.Log;
 
+import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import org.json.JSONArray;
@@ -47,14 +49,6 @@ public class BackgroundService extends Service {
                 .build();
 
         startForeground(1, notification);
-    }
-
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        String command = intent.getStringExtra("command");
-        if (command != null && command.equals("notify")) {
-            notify("TEST KID Has Phone");
-        }
 
         startTimer();
 
@@ -62,6 +56,17 @@ public class BackgroundService extends Service {
         handler = new Handler();
 
         Log.d(TAG, "Service started");
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        String command = intent.getStringExtra("command");
+        if (command != null && command.equals("notify")) {
+            notify("TEST KID Has Phone");
+        } else if (command != null && command.equals("STOP_RINGTONE")) {
+            stopRingtone();
+        }
+
         return START_STICKY;
     }
 
@@ -83,7 +88,14 @@ public class BackgroundService extends Service {
         stopTimer();
     }
 
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+
     private void startTimer() {
+        stopTimer();
         timer = new Timer();
         timer.scheduleAtFixedRate(new TimerTask() {
             @Override
@@ -104,21 +116,8 @@ public class BackgroundService extends Service {
     }
 
     public void notify(String kidName) {
-        int seconds = 1;
-        Intent intent = new Intent(AlarmClock.ACTION_SET_TIMER)
-                .putExtra(AlarmClock.EXTRA_MESSAGE, kidName)
-                .putExtra(AlarmClock.EXTRA_LENGTH, seconds)
-                .putExtra(AlarmClock.EXTRA_SKIP_UI, true);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        if (intent.resolveActivity(getPackageManager()) != null) {
-            Log.d("BackgroundService", "Starting Timer");
-            startActivity(intent);
-        } else {
-            Log.d("ImplicitIntents", "Can't handle this intent!");
-        }
-
         // Play alarm default alarm sound
-//        playDefaultAlarmSound();
+        playDefaultAlarmSound();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
@@ -128,12 +127,23 @@ public class BackgroundService extends Service {
             channel.setDescription("KidHasPhoneAlert channel for foreground service notification");
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
+
+            Intent clickIntent = new Intent(this, BootReceiver.class);
+            clickIntent.setAction("NOTIFICATION_CLICKED");
+            PendingIntent clickPendingIntent = PendingIntent.getBroadcast(this, 0, clickIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+            Intent cancelIntent = new Intent(this, BootReceiver.class);
+            cancelIntent.setAction("NOTIFICATION_CLICKED");
+            PendingIntent cancelPendingIntent = PendingIntent.getBroadcast(this, 0, cancelIntent, PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
             NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "KidHasAlertChannel")
-                .setSmallIcon(R.mipmap.ic_logo)
-                .setContentTitle("KidHasPhoneAlert")
-                .setContentText(kidName + " has phone")
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                .setAutoCancel(true);
+                    .setSmallIcon(R.mipmap.ic_logo)
+                    .setContentTitle("KidHasPhoneAlert")
+                    .setContentText(kidName + " has phone")
+                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                    .setContentIntent(clickPendingIntent) // Set the click intent
+                    .setDeleteIntent(cancelPendingIntent) // Set the delete intent
+                    .setAutoCancel(true);
 
             notificationManager.notify(1, builder.build());
         }
@@ -163,15 +173,10 @@ public class BackgroundService extends Service {
             }
 
             ringtone = RingtoneManager.getRingtone(getApplicationContext(), alert);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                ringtone.setLooping(true);
+            }
             ringtone.play();
-
-            // Stop the ringtone after 10 seconds
-//            handler.postDelayed(new Runnable() {
-//                @Override
-//                public void run() {
-//                    ringtone.stop();
-//                }
-//            }, 6000); // Stop after 10 seconds
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -203,7 +208,10 @@ public class BackgroundService extends Service {
                     editor.putLong(kidName, integerValue);
                     editor.apply();
 
+                    Log.i(TAG, "New alert for " + kidName + "\n" + "Last fetched: " + lastFetchedIntegerValue + "\n" + "Current: " + integerValue);
                     notify(kidName + " has phone");
+                } else {
+                    Log.d(TAG, "No new alerts for " + kidName + "\n" + "Last fetched: " + lastFetchedIntegerValue + "\n" + "Current: " + integerValue);
                 }
             }
         } catch (JSONException e) {
@@ -236,10 +244,5 @@ public class BackgroundService extends Service {
         }
 
         return stringArray;
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
     }
 }
