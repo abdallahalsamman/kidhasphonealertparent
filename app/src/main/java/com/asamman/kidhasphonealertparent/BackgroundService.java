@@ -1,5 +1,6 @@
 package com.asamman.kidhasphonealertparent;
 
+import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
@@ -36,7 +37,25 @@ public class BackgroundService extends Service {
     private Handler handler;
 
     @Override
+    public void onCreate() {
+        super.onCreate();
+        String channelId = createNotificationChannel("my_service", "My Background Service");
+        Notification notification = new NotificationCompat.Builder(this, channelId)
+                .setContentTitle("Service Running")
+                .setContentText("This is a foreground service notification.")
+                .setSmallIcon(R.drawable.ic_launcher_background)
+                .build();
+
+        startForeground(1, notification);
+    }
+
+    @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        String command = intent.getStringExtra("command");
+        if (command != null && command.equals("notify")) {
+            notify("TEST KID Has Phone");
+        }
+
         startTimer();
 
         mediaPlayer = new MediaPlayer();
@@ -44,6 +63,18 @@ public class BackgroundService extends Service {
 
         Log.d(TAG, "Service started");
         return START_STICKY;
+    }
+
+    private String createNotificationChannel(String channelId, String channelName) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_DEFAULT);
+            channel.setDescription("Your service channel description");
+            // Register the channel with the system; you can't change the importance
+            // or other notification behaviors after this
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
+        return channelId;
     }
 
     @Override
@@ -63,7 +94,7 @@ public class BackgroundService extends Service {
                     throw new RuntimeException(e);
                 }
             }
-        }, 0, 3 * 60 * 1000);
+        }, 0, 10 * 1000);
     }
 
     private void stopTimer() {
@@ -73,7 +104,7 @@ public class BackgroundService extends Service {
     }
 
     public void notify(String kidName) {
-        int seconds = 10;
+        int seconds = 1;
         Intent intent = new Intent(AlarmClock.ACTION_SET_TIMER)
                 .putExtra(AlarmClock.EXTRA_MESSAGE, kidName)
                 .putExtra(AlarmClock.EXTRA_LENGTH, seconds)
@@ -87,7 +118,7 @@ public class BackgroundService extends Service {
         }
 
         // Play alarm default alarm sound
-        playDefaultAlarmSound();
+//        playDefaultAlarmSound();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
@@ -115,6 +146,14 @@ public class BackgroundService extends Service {
         compareAndNotify(jsonResponse);
     }
 
+    private Ringtone ringtone;
+
+    private void stopRingtone() {
+        if (ringtone != null) {
+            ringtone.stop();
+        }
+    }
+
     private void playDefaultAlarmSound() {
         try {
             Uri alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
@@ -123,16 +162,16 @@ public class BackgroundService extends Service {
                 alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
             }
 
-            Ringtone ringtone = RingtoneManager.getRingtone(getApplicationContext(), alert);
+            ringtone = RingtoneManager.getRingtone(getApplicationContext(), alert);
             ringtone.play();
 
             // Stop the ringtone after 10 seconds
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    ringtone.stop();
-                }
-            }, 6000); // Stop after 10 seconds
+//            handler.postDelayed(new Runnable() {
+//                @Override
+//                public void run() {
+//                    ringtone.stop();
+//                }
+//            }, 6000); // Stop after 10 seconds
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -164,7 +203,7 @@ public class BackgroundService extends Service {
                     editor.putLong(kidName, integerValue);
                     editor.apply();
 
-                    notify(kidName);
+                    notify(kidName + " has phone");
                 }
             }
         } catch (JSONException e) {

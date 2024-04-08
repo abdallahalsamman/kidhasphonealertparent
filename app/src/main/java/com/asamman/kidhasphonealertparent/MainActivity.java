@@ -75,6 +75,16 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        Button testButton = findViewById(R.id.testButton);
+        testButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent serviceIntent = new Intent(getApplicationContext(), BackgroundService.class);
+                serviceIntent.putExtra("command", "notify");
+                startService(serviceIntent);
+            }
+        });
+
         stringList = retrieveStrings();
 
         ListView listView = findViewById(R.id.listView);
