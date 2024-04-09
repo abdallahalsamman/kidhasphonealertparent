@@ -55,9 +55,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Intent serviceIntent = new Intent(this, BackgroundService.class);
-        startService(serviceIntent);
-
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         getSupportActionBar().setDisplayShowTitleEnabled(false);
@@ -67,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
         toggleButton.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                Intent serviceIntent = new Intent(getApplicationContext(), BackgroundService.class);
                 if (isChecked) {
                     startService(serviceIntent);
                 } else {
@@ -111,6 +109,13 @@ public class MainActivity extends AppCompatActivity {
                 addString(editText.getText().toString());
                                                      }
         });
+
+        Intent serviceIntent = new Intent(this, BackgroundService.class);
+        try {
+            startService(serviceIntent);
+        } catch (Exception e) {
+            Log.i("MainActivity", "Service already running");
+        }
     }
 
     private boolean isServiceRunning(Context context, Class<?> serviceClass) {
