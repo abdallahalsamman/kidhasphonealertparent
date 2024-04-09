@@ -41,14 +41,14 @@ public class BackgroundService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        String channelId = createNotificationChannel("my_service", "My Background Service");
+        String channelId = createNotificationChannel("ForeGroundService", "My Background Service");
         Notification notification = new NotificationCompat.Builder(this, channelId)
                 .setContentTitle("Service Running")
                 .setContentText("This is a foreground service notification.")
                 .setSmallIcon(R.drawable.ic_launcher_background)
                 .build();
 
-        startForeground(1, notification);
+        startForeground(10, notification);
 
         startTimer();
 
@@ -62,9 +62,10 @@ public class BackgroundService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String command = intent.getStringExtra("command");
         if (command != null && command.equals("notify")) {
-            notify("TEST KID Has Phone");
+            notify("TEST KID");
         } else if (command != null && command.equals("STOP_RINGTONE")) {
             stopRingtone();
+//            notificationManager.cancelAll();
         }
 
         return START_STICKY;
@@ -115,6 +116,7 @@ public class BackgroundService extends Service {
         }
     }
 
+    private NotificationManager notificationManager;
     public void notify(String kidName) {
         // Play alarm default alarm sound
         playDefaultAlarmSound();
@@ -123,9 +125,9 @@ public class BackgroundService extends Service {
             NotificationChannel channel = new NotificationChannel(
                     "KidHasAlertChannel",
                     "KidHasAlertChannel",
-                    NotificationManager.IMPORTANCE_DEFAULT);
+                    NotificationManager.IMPORTANCE_HIGH);
             channel.setDescription("KidHasPhoneAlert channel for foreground service notification");
-            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
 
             Intent clickIntent = new Intent(this, BootReceiver.class);
@@ -140,7 +142,7 @@ public class BackgroundService extends Service {
                     .setSmallIcon(R.mipmap.ic_logo)
                     .setContentTitle("KidHasPhoneAlert")
                     .setContentText(kidName + " has phone")
-                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
                     .setContentIntent(clickPendingIntent) // Set the click intent
                     .setDeleteIntent(cancelPendingIntent) // Set the delete intent
                     .setAutoCancel(true);
@@ -172,10 +174,18 @@ public class BackgroundService extends Service {
                 alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
             }
 
-            ringtone = RingtoneManager.getRingtone(getApplicationContext(), alert);
+            if (ringtone == null) {
+                ringtone = RingtoneManager.getRingtone(getApplicationContext(), alert);
+            }
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 ringtone.setLooping(true);
             }
+
+            if (ringtone.isPlaying()) {
+                ringtone.stop();
+            }
+
             ringtone.play();
         } catch (Exception e) {
             e.printStackTrace();
@@ -209,7 +219,7 @@ public class BackgroundService extends Service {
                     editor.apply();
 
                     Log.i(TAG, "New alert for " + kidName + "\n" + "Last fetched: " + lastFetchedIntegerValue + "\n" + "Current: " + integerValue);
-                    notify(kidName + " has phone");
+                    notify(kidName);
                 } else {
                     Log.d(TAG, "No new alerts for " + kidName + "\n" + "Last fetched: " + lastFetchedIntegerValue + "\n" + "Current: " + integerValue);
                 }
